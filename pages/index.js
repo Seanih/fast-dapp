@@ -1,6 +1,6 @@
 import Head from 'next/head';
-import Image from 'next/image';
 import styles from '../styles/Home.module.css';
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 import abi from '../abi/addWordABI.json';
 import { ethers } from 'ethers';
@@ -11,6 +11,7 @@ export default function Home() {
 	const [message, setMessage] = useState('');
 	const [allPostedPhrases, setAllPostedPhrases] = useState([]);
 
+	const dataMap = new Map();
 	const contractAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
 
 	// Wallet connection logic
@@ -71,6 +72,8 @@ export default function Home() {
 
 				await wordTxn.wait();
 
+				dataMap.set(phrase, message);
+
 				console.log('mined ', wordTxn.hash);
 
 				// Clear the form fields.
@@ -103,7 +106,7 @@ export default function Home() {
 		}
 	};
 
-  //* set up event listener for contract
+	//* set up event listener for contract
 	const listenToEvent = () => {
 		const { ethereum } = window;
 
@@ -124,7 +127,7 @@ export default function Home() {
 						message: _message,
 					};
 
-          setAllPostedPhrases(prev => [...prev, info.addedWord])
+					setAllPostedPhrases(prev => [...prev, info.addedWord]);
 
 					console.log('latest event: ', JSON.stringify(info));
 				});
@@ -135,6 +138,20 @@ export default function Home() {
 			}
 		} catch (error) {
 			console.log(error);
+		}
+	};
+
+	const sendDataToMongo = async () => {
+		const mongoData = { userPhrase: phrase, userMessage: message };
+		try {
+			await axios.post('/api/allData', mongoData);
+
+			setPhrase('');
+			setMessage('');
+
+			console.log('added to MongoDB');
+		} catch (error) {
+			console.log('fucked up');
 		}
 	};
 
@@ -170,7 +187,8 @@ export default function Home() {
 							<input type='text' onChange={onMessageChange} value={message} />
 						</label>
 						<br />
-						<button onClick={addWord}>Add phrase & message!</button>
+						<button onClick={addWord}>Add to blockchain</button>
+						<button onClick={sendDataToMongo}>Add to Mongo</button>
 						<br />
 						<button onClick={getAllPhrases}>Show all posted phrases</button>
 						{allPostedPhrases.length > 0 && (
@@ -187,19 +205,6 @@ export default function Home() {
 					</>
 				)}
 			</main>
-
-			<footer className={styles.footer}>
-				<a
-					href='https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app'
-					target='_blank'
-					rel='noopener noreferrer'
-				>
-					Powered by{' '}
-					<span className={styles.logo}>
-						<Image src='/vercel.svg' alt='Vercel Logo' width={72} height={16} />
-					</span>
-				</a>
-			</footer>
 		</div>
 	);
 }
